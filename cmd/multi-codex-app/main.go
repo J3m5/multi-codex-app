@@ -16,6 +16,10 @@ import (
 var assets embed.FS
 var version = "dev"
 
+// Source builds of this fork must not silently replace the Linux fixes with an
+// upstream release. Enable only when this fork has its own release channel.
+var updateInstallerBase = ""
+
 func main() {
 	if e := run(os.Args[1:]); e != nil {
 		fmt.Fprintln(os.Stderr, "multi-codex-app:", e)
@@ -130,7 +134,7 @@ const help = `multi-codex-app — independent Codex desktop profiles
   share                                     Show who shares chats and memories
   share ID all|chats|memories|off           Share chats and/or memories, or stop
   share owner ID                            Choose the profile holding shared data
-  update                                    Install the newest release, keeping profiles
+  update                                    Disabled in this source fork; rebuild from source
   doctor                                    Check paths and callback routing (no tokens)
   uninstall                                 Remove integration; preserve profile data
 
@@ -320,10 +324,13 @@ func persistInstallation(root string, c *Config, pin bool, onlyIDs ...string) er
 	}
 	fmt.Printf("Installed %d profiles. Your saved profile data is retained.\n", len(c.Profiles))
 	fmt.Printf("CLI: %s\n", c.CLIPath)
-	fmt.Println("Use: multi-codex-app list / launch 2 / add / update")
+	fmt.Println("Use: multi-codex-app list / launch 2 / add")
 	return nil
 }
 func update() error {
+	if updateInstallerBase == "" {
+		return errors.New("this fork is built from source; update the checkout and run sh scripts/build.sh, then refresh setup")
+	}
 	c, e := readConfig(stateRoot())
 	if e != nil {
 		return e
@@ -338,7 +345,7 @@ func update() error {
 		shell = "powershell.exe"
 	}
 	// Fetch the installer as data, then execute the local file. No shell interpolation.
-	b, e := download("https://raw.githubusercontent.com/am-will/multi-codex-app/main/" + script)
+	b, e := download(updateInstallerBase + "/" + script)
 	if e != nil {
 		return e
 	}

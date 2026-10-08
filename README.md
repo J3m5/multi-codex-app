@@ -1,5 +1,10 @@
 # Multi Codex App
 
+> **Linux fork:** fixes Electron profile isolation, window grouping and callback
+> routing. Profiles accept optional `workingDirectory`, `wmClass` and `environment`
+> fields in `config.json`. Build with `sh scripts/build.sh`; the installers below
+> fetch upstream binaries, and automatic binary updates are disabled in this fork.
+
 **Run more than one Codex account at the same time.**
 
 Multi Codex App gives each of your Codex accounts its own copy of the Codex desktop app, with its own name, Dock icon, sign-in, chats, and plugins. Your personal and work accounts can stay open side by side, so you never have to sign out to switch.
@@ -168,7 +173,7 @@ Run `multi-codex-app share` to see what each app shares.
 | `multi-codex-app share` | Show which profiles share chats and memories |
 | `multi-codex-app share 2 all` | Share chats and memories in profile 2 (or `chats`, `memories`, `off`) |
 | `multi-codex-app share owner 3` | Make profile 3 hold the shared chats and memories |
-| `multi-codex-app update` | Install the newest release and keep your profiles |
+| `multi-codex-app update` | Disabled in this source fork; rebuild from source |
 | `multi-codex-app doctor` | Check paths and login-link routing |
 | `multi-codex-app uninstall` | Remove the integration but keep your data |
 
