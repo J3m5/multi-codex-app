@@ -51,7 +51,7 @@ func installIntegration(root string, c *Config, dock bool, onlyIDs ...string) er
 			} else if !errors.Is(err, os.ErrNotExist) {
 				return err
 			}
-			body := "[Desktop Entry]\nType=Application\nName=" + launcherName(p.Name) + "\nComment=Independent Codex profile\nExec=" + desktopQuote(c.CLIPath) + " --root " + desktopQuote(root) + " launch " + p.ID + "\nIcon=" + iconFile(root, p, "png") + "\nTerminal=false\nCategories=Development;\n"
+			body := linuxDesktopEntry(root, *c, p)
 			if e := atomicWrite(filepath.Join(dir, "multi-codex-profile-"+p.ID+".desktop"), []byte(body), 0755); e != nil {
 				return e
 			}
@@ -60,7 +60,10 @@ func installIntegration(root string, c *Config, dock bool, onlyIDs ...string) er
 		if c.PreviousHandler == "" {
 			c.PreviousHandler = strings.TrimSpace(string(previous))
 		}
-		body := "[Desktop Entry]\nType=Application\nName=Multi Codex Helper\nExec=" + desktopQuote(c.CLIPath) + " --root " + desktopQuote(root) + " callback %u\nNoDisplay=true\nTerminal=false\nMimeType=x-scheme-handler/codex;\n"
+		// xdg-utils' generic handler lookup treats a quoted executable as part
+		// of its literal filename. A fixed, unquoted env entry point keeps
+		// lookup working while the CLI path and root remain safely quoted.
+		body := "[Desktop Entry]\nType=Application\nName=Multi Codex Helper\nExec=/usr/bin/env " + desktopQuote(c.CLIPath) + " --root " + desktopQuote(root) + " callback %u\nNoDisplay=true\nTerminal=false\nMimeType=x-scheme-handler/codex;\n"
 		if e := atomicWrite(filepath.Join(dir, "multi-codex-helper.desktop"), []byte(body), 0755); e != nil {
 			return e
 		}
@@ -106,6 +109,16 @@ func installIntegration(root string, c *Config, dock bool, onlyIDs ...string) er
 		}
 	}
 	return nil
+}
+
+func linuxDesktopEntry(root string, c Config, p Profile) string {
+	body := "[Desktop Entry]\nType=Application\nName=" + launcherName(p.Name) + "\nComment=Independent Codex profile\nExec=" + desktopQuote(c.CLIPath) + " --root " + desktopQuote(root) + " launch " + p.ID + "\nIcon=" + iconFile(root, p, "png") + "\nTerminal=false\nStartupNotify=true\nStartupWMClass=" + linuxWindowClass(p) + "\nCategories=Development;\n"
+	if p.WorkingDirectory != "" {
+		// Path is a desktop-entry string value, not an Exec argument.
+		escaped := strings.NewReplacer("\\", "\\\\", "\t", "\\t", " ", "\\s").Replace(p.WorkingDirectory)
+		body += "Path=" + escaped + "\n"
+	}
+	return body
 }
 func installCLILink(home, cli string) error {
 	dir := filepath.Join(home, ".local", "bin")
@@ -250,6 +263,9 @@ func doctor() error {
 		}
 		if p.UserDataDir != "" && !isDir(p.UserDataDir) {
 			return fmt.Errorf("profile %s desktop data missing", p.ID)
+		}
+		if p.WorkingDirectory != "" && !isDir(p.WorkingDirectory) {
+			return fmt.Errorf("profile %s working directory missing", p.ID)
 		}
 	}
 	sharingErr := doctorSharing(c)

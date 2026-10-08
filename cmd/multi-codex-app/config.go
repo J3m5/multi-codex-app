@@ -21,6 +21,10 @@ type Profile struct {
 	// Sharing links this profile's chats or memories to the sharing owner's copies.
 	ShareChats    bool `json:"shareChats,omitempty"`
 	ShareMemories bool `json:"shareMemories,omitempty"`
+
+	WorkingDirectory string            `json:"workingDirectory,omitempty"`
+	WMClass          string            `json:"wmClass,omitempty"`
+	Environment      map[string]string `json:"environment,omitempty"`
 }
 type Config struct {
 	Version         int              `json:"version"`
@@ -78,14 +82,36 @@ func validateConfig(c Config) error {
 			return errors.New("invalid or duplicate profile ID")
 		}
 		seen[p.ID] = true
+		for key, value := range p.Environment {
+			if key == "" || strings.ContainsAny(key, "=\x00") || strings.ContainsRune(value, '\x00') {
+				return errors.New("invalid profile environment variable")
+			}
+			switch key {
+			case "CODEX_HOME", "CODEX_ELECTRON_USER_DATA_PATH", "CODEX_DESKTOP_RELAUNCH_OPEN_EVENTS":
+				return errors.New("profile identity and relaunch variables cannot be overridden in environment")
+			}
+		}
 		if p.IconColor != "" && !validIconColor(p.IconColor) {
 			return errors.New("invalid icon color; run multi-codex-app icons")
 		}
 		if strings.TrimSpace(p.Name) == "" || strings.ContainsAny(p.Name, "\r\n\x00") {
 			return errors.New("profile names must be nonempty single lines")
 		}
-		if !filepath.IsAbs(p.CodexHome) || (p.ID != "1" && !filepath.IsAbs(p.UserDataDir)) {
+		if !filepath.IsAbs(p.CodexHome) || (p.UserDataDir != "" && !filepath.IsAbs(p.UserDataDir)) || (p.ID != "1" && p.UserDataDir == "") {
 			return errors.New("profile paths must be absolute")
+		}
+		for _, path := range []string{p.CodexHome, p.UserDataDir, p.WorkingDirectory} {
+			if strings.ContainsAny(path, "\r\n\x00") {
+				return errors.New("profile paths must be single lines")
+			}
+		}
+		if p.WorkingDirectory != "" && !filepath.IsAbs(p.WorkingDirectory) {
+			return errors.New("working directory must be absolute")
+		}
+		if strings.ContainsFunc(p.WMClass, func(r rune) bool {
+			return !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' || r == '_' || r == '.')
+		}) {
+			return errors.New("window class may contain only letters, digits, dots, underscores and hyphens")
 		}
 	}
 	if len(c.Profiles) == 0 && len(c.RemovedProfiles) == 0 {

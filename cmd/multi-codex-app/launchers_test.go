@@ -50,7 +50,7 @@ func TestLauncherPathPersistsWithoutChangingProfileIdentity(t *testing.T) {
 		t.Fatal(e)
 	}
 	got, e := readConfig(root)
-	if e != nil || got.Profiles[0] != p {
+	if e != nil || !equalProfiles(got.Profiles[0], p) {
 		t.Fatal("launcher naming changed profile identity", e)
 	}
 }

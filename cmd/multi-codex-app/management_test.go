@@ -84,14 +84,14 @@ func TestRemovalArchivesIdentityAndNeverReusesData(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if removed != old || len(next.Profiles) != 2 || next.RemovedProfiles[0] != old || len(c.Profiles) != 3 {
+	if !equalProfiles(removed, old) || len(next.Profiles) != 2 || !equalProfiles(next.RemovedProfiles[0], old) || len(c.Profiles) != 3 {
 		t.Fatal("removal changed identity or caller")
 	}
 	if e = saveConfig(root, next); e != nil {
 		t.Fatal(e)
 	}
 	restored, e := readConfig(root)
-	if e != nil || restored.RemovedProfiles[0] != old {
+	if e != nil || !equalProfiles(restored.RemovedProfiles[0], old) {
 		t.Fatal("removed identity was lost", e)
 	}
 	if e = appendProfile(&next, "3", root, root); e == nil {
@@ -159,7 +159,7 @@ func TestOnlyChangedProfileIsSelected(t *testing.T) {
 		t.Fatal("unchanged profiles selected", got)
 	}
 	archived, primary, e := archivedConfig(before, "1")
-	if e != nil || primaryProfile(archived) != primary {
+	if e != nil || !equalProfiles(primaryProfile(archived), primary) {
 		t.Fatal("normal links lost original Primary", e)
 	}
 }

@@ -72,13 +72,13 @@ func TestIconDefaultsAndPersistence(t *testing.T) {
 		t.Fatal(e)
 	}
 	got, e := readConfig(r)
-	if e != nil || got.Profiles[0] != p {
+	if e != nil || !equalProfiles(got.Profiles[0], p) {
 		t.Fatal("appearance did not preserve identity", e)
 	}
 	if e := ensureProfiles(&got, 5, r, r); e != nil {
 		t.Fatal(e)
 	}
-	if got.Profiles[0] != p {
+	if !equalProfiles(got.Profiles[0], p) {
 		t.Fatal("adding profiles changed chosen color")
 	}
 	c.Profiles[0].IconColor = "../bad"

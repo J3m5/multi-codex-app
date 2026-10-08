@@ -69,10 +69,21 @@ func appEnvironment(p Profile) []string {
 		case "CODEX_HOME", "CODEX_ELECTRON_USER_DATA_PATH", "CODEX_DESKTOP_RELAUNCH_OPEN_EVENTS":
 			continue
 		}
+		if _, overridden := p.Environment[k]; overridden {
+			continue
+		}
 		env = append(env, v)
 	}
-	return append(env, "CODEX_HOME="+p.CodexHome)
+	for key, value := range p.Environment {
+		env = append(env, key+"="+value)
+	}
+	env = append(env, "CODEX_HOME="+p.CodexHome)
+	if p.UserDataDir != "" {
+		env = append(env, "CODEX_ELECTRON_USER_DATA_PATH="+p.UserDataDir)
+	}
+	return env
 }
+
 func launch(c Config, p Profile, uri string) error {
 	if e := checkApp(c.AppPath); e != nil {
 		return e
@@ -97,7 +108,11 @@ func launch(c Config, p Profile, uri string) error {
 			return nil
 		}
 		args := []string{"-n", c.AppPath, "--env", "CODEX_HOME=" + p.CodexHome}
+		for key, value := range p.Environment {
+			args = append(args, "--env", key+"="+value)
+		}
 		if p.UserDataDir != "" {
+			args = append(args, "--env", "CODEX_ELECTRON_USER_DATA_PATH="+p.UserDataDir)
 			args = append(args, "--args", "--user-data-dir="+p.UserDataDir)
 		}
 		cmd := exec.Command("/usr/bin/open", args...)
@@ -107,21 +122,39 @@ func launch(c Config, p Profile, uri string) error {
 		}
 		return nil
 	}
-	args := []string{}
-	if p.UserDataDir != "" {
-		args = append(args, "--user-data-dir="+p.UserDataDir)
-	}
-	if uri != "" {
-		args = append(args, uri)
-	}
-	cmd := exec.Command(c.AppPath, args...)
-	cmd.Env = appEnvironment(p)
+	cmd := desktopCommand(c, p, uri)
 	// Callback arguments are never logged, even on launch failures.
 	if e := cmd.Start(); e != nil {
 		return errors.New("could not start the selected desktop profile")
 	}
 	go func() { _ = cmd.Wait() }()
 	return nil
+}
+
+// desktopCommand builds an argv directly; paths and callback URLs never go
+// through a shell. It is separate from launch so tests can run a probe process.
+func desktopCommand(c Config, p Profile, uri string) *exec.Cmd {
+	args := []string{}
+	if p.UserDataDir != "" {
+		args = append(args, "--user-data-dir="+p.UserDataDir)
+	}
+	if runtime.GOOS == "linux" {
+		args = append(args, "--class="+linuxWindowClass(p))
+	}
+	if uri != "" {
+		args = append(args, uri)
+	}
+	cmd := exec.Command(c.AppPath, args...)
+	cmd.Dir = p.WorkingDirectory
+	cmd.Env = appEnvironment(p)
+	return cmd
+}
+
+func linuxWindowClass(p Profile) string {
+	if p.WMClass != "" {
+		return p.WMClass
+	}
+	return "multi-codex-profile-" + p.ID
 }
 func validateURI(raw string) error {
 	u, e := url.Parse(raw)
@@ -149,7 +182,13 @@ func callback(raw string) error {
 		if runtime.GOOS == "windows" {
 			cmd = exec.Command("powershell.exe", "-NoProfile", "-STA", "-File", filepath.Join(root, "chooser.ps1"), "-ConfigPath", filepath.Join(root, "config.json"))
 		} else {
-			cmd = exec.Command("python3", filepath.Join(root, "chooser.py"), filepath.Join(root, "config.json"))
+			// Prefer the distribution interpreter with its python3-tk package;
+			// PATH may contain tool-manager shims unrelated to this installation.
+			python := "/usr/bin/python3"
+			if _, err := os.Stat(python); err != nil {
+				python = "python3"
+			}
+			cmd = exec.Command(python, filepath.Join(root, "chooser.py"), filepath.Join(root, "config.json"))
 		}
 		b, e := cmd.Output()
 		if e != nil {

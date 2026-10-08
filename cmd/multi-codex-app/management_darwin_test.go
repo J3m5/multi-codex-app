@@ -49,7 +49,7 @@ func TestMacSelectedLauncherEditAndRemovalPreserveOtherProfile(t *testing.T) {
 	}
 	after, _ := os.ReadFile(path)
 	nextInfo, _ := os.Stat(path)
-	if sha256.Sum256(before) != sha256.Sum256(after) || !info.ModTime().Equal(nextInfo.ModTime()) || c.Profiles[1] != untouched {
+	if sha256.Sum256(before) != sha256.Sum256(after) || !info.ModTime().Equal(nextInfo.ModTime()) || !equalProfiles(c.Profiles[1], untouched) {
 		t.Fatal("editing one recreated or changed another launcher")
 	}
 	// Adding one should also leave both existing launchers in place.
@@ -78,7 +78,7 @@ func TestMacSelectedLauncherEditAndRemovalPreserveOtherProfile(t *testing.T) {
 		t.Fatal(e)
 	}
 	next, e := readConfig(root)
-	if e != nil || len(next.Profiles) != 2 || next.Profiles[0] != untouched || len(next.RemovedProfiles) != 1 {
+	if e != nil || len(next.Profiles) != 2 || !equalProfiles(next.Profiles[0], untouched) || len(next.RemovedProfiles) != 1 {
 		t.Fatal("wrong profile removed", e)
 	}
 	if _, e = os.Stat(removed.LauncherPath); !os.IsNotExist(e) {

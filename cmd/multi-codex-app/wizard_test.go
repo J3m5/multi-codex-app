@@ -50,7 +50,7 @@ func TestWizardAddOnlyEditsNewProfilesAndCanCancel(t *testing.T) {
 		t.Fatal(e)
 	}
 	for i, p := range original {
-		if c.Profiles[i] != p {
+		if !equalProfiles(c.Profiles[i], p) {
 			t.Fatal("adding overwrote existing appearance")
 		}
 	}

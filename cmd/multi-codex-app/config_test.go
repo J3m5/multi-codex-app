@@ -3,9 +3,12 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
+
+func equalProfiles(a, b Profile) bool { return reflect.DeepEqual(a, b) }
 
 func TestProfilesAddWithoutChangingExisting(t *testing.T) {
 	root := t.TempDir()
@@ -19,7 +22,7 @@ func TestProfilesAddWithoutChangingExisting(t *testing.T) {
 	if e := ensureProfiles(&c, 6, root, home); e != nil {
 		t.Fatal(e)
 	}
-	if c.Profiles[1] != old {
+	if !equalProfiles(c.Profiles[1], old) {
 		t.Fatal("existing profile changed")
 	}
 	if c.Profiles[5].ID != "6" {
@@ -32,7 +35,7 @@ func TestProfilesAddWithoutChangingExisting(t *testing.T) {
 		t.Fatal(e)
 	}
 	got, e := readConfig(root)
-	if e != nil || got.Profiles[1] != old {
+	if e != nil || !equalProfiles(got.Profiles[1], old) {
 		t.Fatal(got, e)
 	}
 }
